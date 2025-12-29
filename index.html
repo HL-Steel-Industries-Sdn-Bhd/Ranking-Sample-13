@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>排行榜展示（3D 立体版 + QR）</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<style>
+body {
+  margin: 0;
+  height: 100vh;
+  background: linear-gradient(135deg, #FFEFEF, #E8FFF8);
+  font-family: 'Poppins', sans-serif;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background 2s ease;
+}
+
+.scene {
+  width: 720px;
+  height: 640px;
+  perspective: 2000px;
+  position: relative;
+}
+
+.carousel {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 1s ease-in-out;
+}
+
+.card {
+  width: 720px;
+  height: 640px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 20px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.card-content {
+  width: 90%;
+  height: 95%;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  padding: 0.8rem;
+  text-align: center;
+  box-shadow: inset 0 2px 6px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+h2 { font-size: 1.6rem; font-weight: 600; margin-bottom: 0.8rem; }
+table { width: 100%; border-collapse: collapse; height: 100%; }
+tr { height: calc(100% / 16); }
+th, td { padding: 0.25rem; border-bottom: 1px solid #e5e7eb; font-size: 1rem; width: 33.33%; }
+th { background-color: rgba(255,255,255,0.6); }
+tr:nth-child(even) { background-color: rgba(255,255,255,0.4); }
+
+.datetime-box {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  width: 290px;
+  height: 290px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  color: #333;
+  text-align: center;
+  z-index: 25;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: 2rem;
+}
+.datetime-box span { display: block; margin: 0.3rem 0; }
+
+.logo { position: fixed; top: 400px; left: 20px; width: 270px; height: auto; z-index: 20; }
+.left-zone, .right-zone { position: fixed; top: 0; width: 50%; height: 100%; z-index: 10; cursor: pointer; }
+.left-zone { left: 0; } .right-zone { right: 0; }
+.arrow { position: fixed; top: 50%; transform: translateY(-50%); font-size: 4rem; font-weight: bold; color: white; text-shadow: 0 0 10px rgba(255,255,255,0.6),0 0 20px rgba(255,255,255,0.4),2px 4px 6px rgba(0,0,0,0.5); opacity: 0.6; pointer-events: none; user-select: none; animation: pulseGlow 2s infinite alternate; z-index: 15; }
+.arrow.left { left: 3%; } .arrow.right { right: 3%; }
+@keyframes pulseGlow { from { text-shadow: 0 0 8px rgba(255,255,255,0.5); opacity: 0.5; } to { text-shadow: 0 0 25px rgba(255,255,255,1); opacity: 0.9; } }
+
+/* QR 框框 */
+.qr-box {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 290px;
+  height: 290px;
+  background: rgba(255,255,255,0.85);
+  border-radius: 20px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-weight: 600;
+  text-align: center;
+}
+.qr-box canvas { width: 250px; height: 250px; }
+.qr-box span { margin-top: 0.5rem; font-size: 1rem; color: #555; }
+
+/* 验证码显示 - 在QR框框上方 */
+.code-display-container {
+  position: fixed;
+  bottom: 320px; /* QR框框上方30px */
+  right: 20px;
+  width: 290px;
+  height: 80px; /* 增加高度到80px */
+  background: rgba(255,255,255,0.85);
+  border-radius: 20px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* 保持居中 */
+  align-items: center;
+  text-align: center;
+  transition: opacity 0.5s ease;
+}
+
+.code-display-label {
+  font-size: 0.9rem; /* 稍微减小字体 */
+  color: #555;
+  margin-bottom: 3px; /* 减少底部间距 */
+  font-weight: 600;
+  transform: translateY(-2px); /* 稍微向上移动 */
+}
+
+.code-display {
+  font-size: 2.5rem;
+  font-weight: bold;
+  letter-spacing: 12px;
+  font-family: 'Courier New', monospace;
+  color: #333;
+  transform: translateY(-2px); /* 稍微向上移动 */
+}
+</style>
+</head>
+
+<body>
+
+<div class="datetime-box" id="datetimeBox">
+  <span id="date">--/--/----</span>
+  <span id="time">--:--:--</span>
+  <span id="weekday">---</span>
+</div>
+
+<img class="logo" src="" alt="Company Logo">
+<div class="arrow left">❮</div>
+<div class="arrow right">❯</div>
+<div class="left-zone"></div>
+<div class="right-zone"></div>
+
+<div class="scene"><div class="carousel" id="carousel"></div></div>
+
+<!-- 验证码显示区域 - 在QR框框上方 -->
+<div class="code-display-container" id="codeDisplayContainer">
+  <div class="code-display-label">Verification Code</div>
+  <div class="code-display" id="codeDisplay">----</div>
+</div>
+
+<!-- QR Code 框框 -->
+<div class="qr-box" id="qrBox">
+  <canvas id="qrcode"></canvas>
+  <span id="qrCountdown">--:--</span>
+</div>
+
+<script>
+// ===== 时间显示 =====
+function updateDateTime() {
+  const now = new Date();
+  document.getElementById("date").textContent = now.toLocaleDateString('en-GB');
+  document.getElementById("time").textContent = now.toLocaleTimeString('en-US');
+  document.getElementById("weekday").textContent = now.toLocaleDateString('en-GB', { weekday: 'long' });
+}
+setInterval(updateDateTime, 1000);
+updateDateTime();
+
+// ===== 3D Carousel =====
+const cardData = [
+  { title: "Total Point Ranking", color: "#C1E1FF", key: "Total Point Ranking" },
+  { title: "Monthly Point Ranking", color: "#FFD8B1", key: "Monthly Point Ranking" },
+  { title: "Bounty Task Ranking", color: "#C1FFD7", key: "Bounty Task Ranking" },
+  { title: "Pending Ranking", color: "#D8B9F3", key: "Pending Ranking" }
+];
+
+const colors = [
+  "linear-gradient(135deg, #FFF8E7, #E3F2FD)",
+  "linear-gradient(135deg, #E8FFF8, #FFF5E1)",
+  "linear-gradient(135deg, #FFF0F5, #E3FFF7)",
+  "linear-gradient(135deg, #F0FFF3, #E8E8FF)"
+];
+
+const carousel = document.getElementById('carousel');
+function createCardElements() {
+  carousel.innerHTML = "";
+  const n = cardData.length;
+  const radius = 360;
+  cardData.forEach((card, i) => {
+    const cardDiv = document.createElement("div");
+    cardDiv.className = "card";
+    cardDiv.style.background = card.color;
+    cardDiv.innerHTML = `<div class="card-content">
+        <h2>${card.title}</h2>
+        <table>
+          <tr>${["Name","Point","Rank"].map(h=>`<th>${h}</th>`).join('')}</tr>
+          ${Array(16).fill(["--","--","--"]).map(row=>`<tr>${row.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}
+        </table>
+      </div>`;
+    const angle = (360 / n) * i;
+    cardDiv.style.transform = `rotateY(${angle}deg) translateZ(${radius}px)`;
+    carousel.appendChild(cardDiv);
+  });
+}
+let angleY=0,currentIndex=0;
+function updateCarousel(){ carousel.style.transform=`rotateY(${angleY}deg)`; document.body.style.background=colors[currentIndex]; }
+function nextSlide(){ angleY-=90; currentIndex=(currentIndex+1)%cardData.length; updateCarousel(); }
+function prevSlide(){ angleY+=90; currentIndex=(currentIndex-1+cardData.length)%cardData.length; updateCarousel(); }
+document.querySelector(".left-zone").addEventListener("click", prevSlide);
+document.querySelector(".right-zone").addEventListener("click", nextSlide);
+let startX=0;
+document.body.addEventListener("touchstart",e=>startX=e.touches[0].clientX);
+document.body.addEventListener("touchend",e=>{
+  const diff=e.changedTouches[0].clientX-startX;
+  if(diff>50) prevSlide(); else if(diff<-50) nextSlide();
+});
+
+// ===== GAS 数据加载 =====
+async function loadDataFromGS() {
+  const url="https://script.google.com/macros/s/AKfycbx3QuxzX27N2eEGVkF0bDatl2kiwFst2b547AmBvDiPBTPuWWS-eRGjplp6ZHYox4i4/exec";
+  try {
+    const res=await fetch(url);
+    const data=await res.json();
+    createCardElements();
+    cardData.forEach((card,i)=>{
+      const sheetObj=data[card.key];
+      if(!sheetObj||!sheetObj.headers||!sheetObj.rows) return;
+      const cardDiv=carousel.children[i];
+      const headers=sheetObj.headers;
+      const rows=sheetObj.rows;
+      cardDiv.querySelector("table").innerHTML = `<tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr>` +
+        `${rows.map(row=>`<tr>${row.map(cell=>`<td>${cell}</td>`).join('')}</tr>`).join('')}`;
+    });
+    updateCarousel();
+  } catch(e){ console.error("加载 Google Sheet 错误:",e); }
+}
+loadDataFromGS();
+setInterval(loadDataFromGS,5*60*1000);
+
+// ===== 生成4字母验证码 =====
+function generateVerificationCode() {
+  const now = new Date();
+  
+  // 获取日期：日(29)月(12)，格式：2912
+  const month = (now.getMonth() + 1).toString().padStart(2, '0'); // 12
+  const day = now.getDate().toString().padStart(2, '0'); // 29
+  
+  // 格式：日 + 月，例如 2912
+  const dateStr = day + month; // "2912"
+  
+  // 字母映射：0=b, 1=a, 2=c, 3=k, 4=g, 5=r, 6=o, 7=u, 8=n, 9=d
+  const alphabetMap = {
+    '0': 'b', '1': 'a', '2': 'c', '3': 'k', 
+    '4': 'g', '5': 'r', '6': 'o', '7': 'u', 
+    '8': 'n', '9': 'd'
+  };
+  
+  // 根据日期数字生成原始字母
+  let originalLetters = '';
+  for (let i = 0; i < 4; i++) {
+    originalLetters += alphabetMap[dateStr[i]] || 'a';
+  }
+  
+  // 排列方式映射
+  const arrangementMap = {
+    '0': [3,4,2,1], '1': [1,3,4,2], '2': [4,2,1,3], '3': [2,4,3,1],
+    '4': [3,1,2,4], '5': [2,1,4,3], '6': [4,3,1,2], '7': [1,3,2,4],
+    '8': [3,4,1,2], '9': [1,2,4,3]
+  };
+  
+  // 获取日的个位数
+  const dayLastDigit = now.getDate() % 10; // 29 % 10 = 9
+  
+  // 获取排列方式
+  const arrangement = arrangementMap[dayLastDigit.toString()] || [1,2,3,4];
+  
+  // 重新排列字母
+  let finalCode = '';
+  for (let i = 0; i < 4; i++) {
+    finalCode += originalLetters[arrangement[i] - 1];
+  }
+  
+  return finalCode.toUpperCase();
+}
+
+// ===== QR Code 和验证码功能 =====
+const qrBox = document.getElementById("qrBox");
+const qrCanvas = document.getElementById("qrcode");
+const qrCountdown = document.getElementById("qrCountdown");
+const codeDisplay = document.getElementById("codeDisplay");
+const codeDisplayContainer = document.getElementById("codeDisplayContainer");
+
+// 方便修改的扫描时间段（GMT+8）
+let qrStartTime = "8:10"; // hh:mm
+let qrEndTime = "9:00";   // hh:mm
+
+function updateQR() {
+  const now = new Date();
+  // 转换为 GMT+8
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const gmt8 = new Date(utc + 8 * 3600000);
+
+  const currentHM = gmt8.getHours() * 60 + gmt8.getMinutes();
+  const startHM = Number(qrStartTime.split(":")[0]) * 60 + Number(qrStartTime.split(":")[1]);
+  const endHM = Number(qrEndTime.split(":")[0]) * 60 + Number(qrEndTime.split(":")[1]);
+
+  if (currentHM >= startHM && currentHM <= endHM) {
+    // 生成4字母验证码
+    const verificationCode = generateVerificationCode();
+    codeDisplay.textContent = verificationCode;
+    
+    // 生成新的 QR Code
+    const timestamp = Date.now();
+    const qrValue = (timestamp * Math.PI).toString();
+    QRCode.toCanvas(qrCanvas, qrValue, { width: 250 });
+    
+    // 倒计时显示剩余分钟秒
+    const endDate = new Date(gmt8); 
+    endDate.setHours(Number(qrEndTime.split(":")[0]), Number(qrEndTime.split(":")[1]), 0, 0);
+    const diffSec = Math.floor((endDate - gmt8) / 1000);
+    const mm = Math.floor(diffSec / 60).toString().padStart(2, "0");
+    const ss = (diffSec % 60).toString().padStart(2, "0");
+    qrCountdown.textContent = `Remaining: ${mm}:${ss}`;
+    
+    // 显示QR框和验证码框
+    qrCanvas.style.opacity = 1;
+    codeDisplayContainer.style.opacity = 1;
+    codeDisplayContainer.style.pointerEvents = 'auto';
+  } else {
+    qrCountdown.textContent = `Not Available`;
+    qrCanvas.style.opacity = 0;
+    codeDisplay.textContent = '----';
+    codeDisplayContainer.style.opacity = 0.3;
+    codeDisplayContainer.style.pointerEvents = 'none';
+  }
+}
+
+// 每秒更新倒计时
+setInterval(updateQR, 1000);
+updateQR();
+
+// 每分钟刷新页面（仅在扫描时间段）
+setInterval(() => {
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const gmt8 = new Date(utc + 8 * 3600000);
+  const currentHM = gmt8.getHours() * 60 + gmt8.getMinutes();
+  const startHM = Number(qrStartTime.split(":")[0]) * 60 + Number(qrStartTime.split(":")[1]);
+  const endHM = Number(qrEndTime.split(":")[0]) * 60 + Number(qrEndTime.split(":")[1]);
+  if (currentHM >= startHM && currentHM <= endHM) {
+    location.reload();
+  }
+}, 60000);
+
+</script>
+</body>
+</html>

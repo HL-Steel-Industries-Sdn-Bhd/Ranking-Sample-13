@@ -124,25 +124,24 @@ tr:nth-child(even) { background-color: rgba(255,255,255,0.4); }
   bottom: 320px; /* QR框框上方30px */
   right: 20px;
   width: 290px;
-  height: 80px; /* 增加高度到80px */
+  height: 70px;
   background: rgba(255,255,255,0.85);
   border-radius: 20px;
   box-shadow: 0 5px 15px rgba(0,0,0,0.2);
   z-index: 30;
   display: flex;
   flex-direction: column;
-  justify-content: center; /* 保持居中 */
+  justify-content: center;
   align-items: center;
   text-align: center;
   transition: opacity 0.5s ease;
 }
 
 .code-display-label {
-  font-size: 0.9rem; /* 稍微减小字体 */
+  font-size: 1rem;
   color: #555;
-  margin-bottom: 3px; /* 减少底部间距 */
+  margin-bottom: -7px;
   font-weight: 600;
-  transform: translateY(-2px); /* 稍微向上移动 */
 }
 
 .code-display {
@@ -151,7 +150,6 @@ tr:nth-child(even) { background-color: rgba(255,255,255,0.4); }
   letter-spacing: 12px;
   font-family: 'Courier New', monospace;
   color: #333;
-  transform: translateY(-2px); /* 稍微向上移动 */
 }
 </style>
 </head>
@@ -164,7 +162,8 @@ tr:nth-child(even) { background-color: rgba(255,255,255,0.4); }
   <span id="weekday">---</span>
 </div>
 
-<img class="logo" src="" alt="Company Logo">
+<!-- LOGO占位符 - 原base64图片已替换为简单占位符 -->
+<img class="logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='270' height='100' viewBox='0 0 270 100'%3E%3Crect width='270' height='100' fill='%23f0f0f0'/%3E%3Ctext x='50' y='55' font-family='Arial' font-size='16' fill='%23333'%3ELOGO PLACEHOLDER%3C/text%3E%3C/svg%3E" alt="Company Logo">
 <div class="arrow left">❮</div>
 <div class="arrow right">❯</div>
 <div class="left-zone"></div>
@@ -200,7 +199,7 @@ const cardData = [
   { title: "Total Point Ranking", color: "#C1E1FF", key: "Total Point Ranking" },
   { title: "Monthly Point Ranking", color: "#FFD8B1", key: "Monthly Point Ranking" },
   { title: "Bounty Task Ranking", color: "#C1FFD7", key: "Bounty Task Ranking" },
-  { title: "Pending Ranking", color: "#D8B9F3", key: "Pending Ranking" }
+  { title: "Morning Check-in Ranking", color: "#D8B9F3", key: "Morning Check-in Ranking" }
 ];
 
 const colors = [
@@ -246,7 +245,7 @@ document.body.addEventListener("touchend",e=>{
 
 // ===== GAS 数据加载 =====
 async function loadDataFromGS() {
-  const url="https://script.google.com/macros/s/AKfycbx3QuxzX27N2eEGVkF0bDatl2kiwFst2b547AmBvDiPBTPuWWS-eRGjplp6ZHYox4i4/exec";
+  const url="https://script.google.com/macros/s/AKfycbw2UcrDExtN8YOKDI4jvcE-hxjY5iUGUH0ZgAeE7bjeREBseoS4z9bOUYUEYYLhaSkK/exec";
   try {
     const res=await fetch(url);
     const data=await res.json();
@@ -265,6 +264,52 @@ async function loadDataFromGS() {
 }
 loadDataFromGS();
 setInterval(loadDataFromGS,5*60*1000);
+
+// ===== 自动翻页功能 =====
+let autoPlayInterval;
+let resetTimer;
+
+function startAutoPlay() {
+  // 每1分钟（60000毫秒）向右转一次
+  autoPlayInterval = setInterval(() => {
+    nextSlide();
+  }, 60000); // 1分钟 = 60000毫秒
+  
+  // 4分钟（240000毫秒）后重置到第一页
+  resetTimer = setInterval(() => {
+    // 计算需要旋转的角度回到第一页
+    const currentAngle = currentIndex * 90;
+    angleY = 0;
+    currentIndex = 0;
+    carousel.style.transform = `rotateY(0deg)`;
+    document.body.style.background = colors[0];
+  }, 240000); // 4分钟 = 240000毫秒
+}
+
+function stopAutoPlay() {
+  if (autoPlayInterval) {
+    clearInterval(autoPlayInterval);
+    autoPlayInterval = null;
+  }
+  if (resetTimer) {
+    clearInterval(resetTimer);
+    resetTimer = null;
+  }
+}
+
+// 鼠标悬停时暂停自动播放，移开后继续
+carousel.addEventListener('mouseenter', stopAutoPlay);
+carousel.addEventListener('mouseleave', startAutoPlay);
+
+// 触摸设备支持：触摸时暂停，触摸结束后继续
+carousel.addEventListener('touchstart', stopAutoPlay);
+carousel.addEventListener('touchend', function(e) {
+  // 延迟一下再开始，避免误触
+  setTimeout(startAutoPlay, 1000);
+});
+
+// 页面加载后开始自动播放
+startAutoPlay();
 
 // ===== 生成4字母验证码 =====
 function generateVerificationCode() {
@@ -368,7 +413,8 @@ function updateQR() {
 setInterval(updateQR, 1000);
 updateQR();
 
-// 每分钟刷新页面（仅在扫描时间段）
+// ===== 修改自动刷新逻辑：只刷新数据，不刷新整个页面 =====
+// 移除原来的 location.reload()，改为只刷新数据
 setInterval(() => {
   const now = new Date();
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -377,9 +423,12 @@ setInterval(() => {
   const startHM = Number(qrStartTime.split(":")[0]) * 60 + Number(qrStartTime.split(":")[1]);
   const endHM = Number(qrEndTime.split(":")[0]) * 60 + Number(qrEndTime.split(":")[1]);
   if (currentHM >= startHM && currentHM <= endHM) {
-    location.reload();
+    // 只刷新数据，不刷新整个页面
+    loadDataFromGS();
+    // 重新生成QR码和验证码
+    updateQR();
   }
-}, 60000);
+}, 300000); // 每5分钟刷新数据
 
 </script>
 </body>
